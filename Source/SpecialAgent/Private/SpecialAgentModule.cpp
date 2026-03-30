@@ -15,6 +15,11 @@
 
 void FSpecialAgentModule::StartupModule()
 {
+	if (IsRunningCommandlet())
+	{
+		return;
+	}
+
 	UE_LOG(LogTemp, Log, TEXT("SpecialAgent: Module starting up"));
 
 	// Create the MCP server instance
