@@ -151,9 +151,11 @@ struct FMCPRequest
 	FString Method;
 	TSharedPtr<FJsonObject> Params;
 	FString Id;  // Can be string or number
+	bool bHasId;  // Distinguishes requests from notifications
 
 	FMCPRequest()
 		: JsonRpc(TEXT("2.0"))
+		, bHasId(false)
 	{}
 };
 

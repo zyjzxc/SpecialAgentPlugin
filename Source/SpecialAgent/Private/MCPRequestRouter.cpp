@@ -125,10 +125,10 @@ FMCPResponse FMCPRequestRouter::RouteRequest(const FMCPRequest& Request)
 		return HandlePromptsGet(Request);
 	}
 	
-	// Handle notifications (requests without an ID expecting no response content)
+	// Handle notifications. The HTTP transport layer suppresses any response body for requests without an ID.
 	if (Request.Method == TEXT("notifications/initialized") || Request.Method == TEXT("initialized"))
 	{
-		// This is a notification - return minimal success response
+		// Keep routing simple; the caller decides whether this becomes an HTTP response.
 		TSharedPtr<FJsonObject> Result = MakeShared<FJsonObject>();
 		return FMCPResponse::Success(Request.Id, Result);
 	}

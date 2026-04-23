@@ -252,6 +252,37 @@ bool FSpecialAgentMCPServer::HandleMessage(const FHttpServerRequest& Request, co
 		return true;
 	}
 
+	// Notifications do not carry an ID and must not receive a JSON-RPC response body.
+	if (!MCPRequest.bHasId)
+	{
+		UE_LOG(LogTemp, Log, TEXT("SpecialAgent: Accepted notification: %s"), *MCPRequest.Method);
+
+		AsyncTask(ENamedThreads::GameThread, [this, MCPRequest]()
+		{
+			UE_LOG(LogTemp, Log, TEXT("SpecialAgent: Processing notification on game thread: %s"), *MCPRequest.Method);
+
+			const FMCPResponse MCPResponse = RequestRouter->RouteRequest(MCPRequest);
+
+			if (!MCPResponse.bSuccess && MCPResponse.ErrorObject.IsValid())
+			{
+				FString ErrorMessage = TEXT("Unknown error");
+				MCPResponse.ErrorObject->TryGetStringField(TEXT("message"), ErrorMessage);
+				UE_LOG(LogTemp, Warning, TEXT("SpecialAgent: Notification %s failed: %s"), *MCPRequest.Method, *ErrorMessage);
+				return;
+			}
+
+			UE_LOG(LogTemp, Log, TEXT("SpecialAgent: Notification completed for: %s"), *MCPRequest.Method);
+		});
+
+		TUniquePtr<FHttpServerResponse> Response = FHttpServerResponse::Create(TEXT(""), TEXT("text/plain"));
+		Response->Headers.Add(TEXT("Access-Control-Allow-Origin"), { TEXT("*") });
+		Response->Headers.Add(TEXT("Access-Control-Allow-Methods"), { TEXT("GET, POST, OPTIONS") });
+		Response->Headers.Add(TEXT("Access-Control-Allow-Headers"), { TEXT("Content-Type") });
+		Response->Code = EHttpServerResponseCodes::Accepted;
+		OnComplete(MoveTemp(Response));
+		return true;
+	}
+
 	// Process on game thread and send response
 	AsyncTask(ENamedThreads::GameThread, [this, MCPRequest, OnComplete, SessionId]()
 	{
@@ -340,6 +371,7 @@ bool FSpecialAgentMCPServer::ParseRequest(const FString& JsonString, FMCPRequest
 
 	// ID can be string or number
 	const TSharedPtr<FJsonValue> IdValue = JsonObject->TryGetField(TEXT("id"));
+	OutRequest.bHasId = IdValue.IsValid();
 	if (IdValue.IsValid())
 	{
 		if (IdValue->Type == EJson::String)
